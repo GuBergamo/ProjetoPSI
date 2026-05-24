@@ -1,0 +1,12 @@
+venv/
+psivenv/
+
+__pycache__/
+
+*.npy
+
+Coswara-Data-master/
+
+*.zip
+*.tar.gz
+*.wav
