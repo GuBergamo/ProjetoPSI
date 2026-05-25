@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import time
 
 from sklearn.svm import SVC
 
@@ -22,7 +23,7 @@ from sklearn.metrics import (
 )
 
 # ============================================================
-# CARREGAR FEATURES
+# LOAD FEATURES
 # ============================================================
 
 X1 = np.load("X_strategy_1.npy")
@@ -32,17 +33,17 @@ X3 = np.load("X_strategy_3.npy")
 y = np.load("y.npy")
 
 # ============================================================
-# DICIONÁRIO DAS ESTRATÉGIAS
+# STRATEGIES
 # ============================================================
 
 strategies = {
-    "Strategy_1": X1,
-    "Strategy_2": X2,
-    "Strategy_3": X3
+    "MFCC": X1,
+    "MFCC_DELTA": X2,
+    "MFCC_DELTA_DELTA": X3
 }
 
 # ============================================================
-# HYPERPARAMETERS
+# PARAM GRID
 # ============================================================
 
 param_grid = {
@@ -52,11 +53,10 @@ param_grid = {
     "svm__gamma": [0.001, 0.01, 0.1, 1],
 
     "svm__kernel": ["rbf", "linear"]
-
 }
 
 # ============================================================
-# NESTED CV
+# CV
 # ============================================================
 
 inner_cv = StratifiedKFold(
@@ -72,13 +72,13 @@ outer_cv = StratifiedKFold(
 )
 
 # ============================================================
-# RESULTADOS
+# RESULTS
 # ============================================================
 
 results = []
 
 # ============================================================
-# LOOP DAS ESTRATÉGIAS
+# MAIN LOOP
 # ============================================================
 
 for strategy_name, X in strategies.items():
@@ -89,13 +89,13 @@ for strategy_name, X in strategies.items():
 
     fold_number = 1
 
-    # ========================================================
-    # OUTER LOOP
-    # ========================================================
+    strategy_times = []
 
     for train_idx, test_idx in outer_cv.split(X, y):
 
-        print(f"\nFold externo {fold_number}")
+        fold_start = time.time()
+
+        print(f"\nOuter Fold {fold_number}")
 
         X_train = X[train_idx]
         X_test = X[test_idx]
@@ -130,19 +130,15 @@ for strategy_name, X in strategies.items():
         )
 
         # ====================================================
-        # TREINAMENTO
+        # TRAIN
         # ====================================================
 
         grid_search.fit(X_train, y_train)
 
-        # melhor modelo
         best_model = grid_search.best_estimator_
 
-        print("Melhores parâmetros:")
-        print(grid_search.best_params_)
-
         # ====================================================
-        # PREDIÇÕES
+        # PREDICT
         # ====================================================
 
         y_pred = best_model.predict(X_test)
@@ -150,7 +146,7 @@ for strategy_name, X in strategies.items():
         y_prob = best_model.predict_proba(X_test)[:, 1]
 
         # ====================================================
-        # MATRIZ DE CONFUSÃO
+        # CONFUSION MATRIX
         # ====================================================
 
         tn, fp, fn, tp = confusion_matrix(
@@ -159,7 +155,7 @@ for strategy_name, X in strategies.items():
         ).ravel()
 
         # ====================================================
-        # MÉTRICAS
+        # METRICS
         # ====================================================
 
         accuracy = accuracy_score(y_test, y_pred)
@@ -173,17 +169,30 @@ for strategy_name, X in strategies.items():
         auc = roc_auc_score(y_test, y_prob)
 
         # ====================================================
+        # TIME
+        # ====================================================
+
+        fold_end = time.time()
+
+        training_time = fold_end - fold_start
+
+        strategy_times.append(training_time)
+
+        # ====================================================
         # PRINT
         # ====================================================
 
+        print("Best Params:")
+        print(grid_search.best_params_)
+
         print(f"Accuracy: {accuracy:.4f}")
-        print(f"Precision: {precision:.4f}")
         print(f"Recall: {recall:.4f}")
-        print(f"F1: {f1:.4f}")
         print(f"AUC: {auc:.4f}")
 
+        print(f"Training Time: {training_time:.2f} s")
+
         # ====================================================
-        # SALVAR RESULTADOS
+        # SAVE
         # ====================================================
 
         results.append({
@@ -203,6 +212,8 @@ for strategy_name, X in strategies.items():
             "F1": f1,
             "AUC": auc,
 
+            "Training_Time": training_time,
+
             "Best_C":
                 grid_search.best_params_["svm__C"],
 
@@ -215,32 +226,28 @@ for strategy_name, X in strategies.items():
 
         fold_number += 1
 
+    print("\nTempo médio:")
+    print(np.mean(strategy_times))
+
 # ============================================================
-# DATAFRAME FINAL
+# DATAFRAME
 # ============================================================
 
 results_df = pd.DataFrame(results)
-
-# ============================================================
-# MÉDIAS
-# ============================================================
 
 summary_df = results_df.groupby("Strategy")[[
     "Accuracy",
     "Precision",
     "Recall",
     "F1",
-    "AUC"
+    "AUC",
+    "Training_Time"
 ]].mean()
-
-print("\n===================================")
-print("MÉDIAS FINAIS")
-print("===================================")
 
 print(summary_df)
 
 # ============================================================
-# SALVAR CSV
+# SAVE CSV
 # ============================================================
 
 results_df.to_csv("all_results.csv", index=False)
