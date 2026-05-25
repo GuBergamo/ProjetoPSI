@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 # LOAD
 # ============================================================
 
-df = pd.read_csv("systematic_results.csv")
+df = pd.read_csv("systematic_results_parallel.csv")
 
 # ============================================================
 # 1. STRATEGY COMPARISON
@@ -146,46 +146,3 @@ plt.tight_layout()
 
 plt.show()
 
-# ============================================================
-# 6. HEATMAP-LIKE PLOT
-# ============================================================
-
-rbf_df = df[
-    (df["Strategy"] == "MFCC") &
-    (df["Kernel"] == "rbf")
-]
-
-pivot = rbf_df.pivot(
-    index="Gamma",
-    columns="C",
-    values="AUC_mean"
-)
-
-plt.figure(figsize=(8,6))
-
-plt.imshow(
-    pivot,
-    aspect='auto'
-)
-
-plt.colorbar(label="AUC")
-
-plt.xticks(
-    range(len(pivot.columns)),
-    pivot.columns
-)
-
-plt.yticks(
-    range(len(pivot.index)),
-    pivot.index
-)
-
-plt.xlabel("C")
-
-plt.ylabel("Gamma")
-
-plt.title("MFCC Strategy Heatmap")
-
-plt.tight_layout()
-
-plt.show()
