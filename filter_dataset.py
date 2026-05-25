@@ -4,8 +4,7 @@ import os
 CSV_PATH = "Coswara-Data-master/combined_data.csv"
 DATA_PATH = "Coswara-Data-master/Extracted_data"
 
-N = 680
-
+arquivo = "counting-normal.wav"  # PEGAR APENAS ESSE TIPO DE ARQUIVO DE CADA INDIVIDUO FILTRADO
 df = pd.read_csv(CSV_PATH)
 
 # classes
@@ -14,7 +13,6 @@ positive_classes = [
     "positive_moderate",
     "positive_asymp"
 ]
-
 negative_classes = ["healthy"]
 
 # filtrar
@@ -23,12 +21,14 @@ df_filtered = df[df["covid_status"].isin(positive_classes + negative_classes)]
 df_pos = df_filtered[df_filtered["covid_status"].isin(positive_classes)]
 df_neg = df_filtered[df_filtered["covid_status"].isin(negative_classes)]
 
-print("Positivos disponíveis:", len(df_pos))
-print("Negativos disponíveis:", len(df_neg))
+print("Positivos disponíveis com classe",positive_classes,":",len(df_pos))
+print("Negativos disponíveis com classe",negative_classes,":", len(df_neg))
+
 
 # balancear
-df_pos_sample = df_pos.sample(n=min(N, len(df_pos)), random_state=42)
-df_neg_sample = df_neg.sample(n=min(N, len(df_neg)), random_state=42)
+N = min(len(df_pos),len(df_neg)) # O número de individuos que vou pegar é o minimo disposinvel das classes.
+df_pos_sample = df_pos.sample(n=N, random_state=42)
+df_neg_sample = df_neg.sample(n=N, random_state=42)
 
 df_balanced = pd.concat([df_pos_sample, df_neg_sample])
 
@@ -56,7 +56,7 @@ def find_audio_files(df):
         folder = id_to_path[user_id]
 
         for file in os.listdir(folder):
-            if file == "counting-normal.wav":
+            if file == arquivo:
                 file_paths.append(os.path.join(folder, file))
 
                 # label correto
@@ -79,4 +79,6 @@ dataset_df = pd.DataFrame({
 
 dataset_df.to_csv("balanced_dataset.csv", index=False)
 
-print("Dataset salvo!")
+print("\n===================================")
+print("FILTRAGEM FINALIZADA E SALVA EM 'balanced_dataset.csv'")
+print("===================================")

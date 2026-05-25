@@ -25,11 +25,11 @@ from sklearn.metrics import (
 # LOAD FEATURES
 # ============================================================
 
-X1 = np.load("X_strategy_1.npy")
-X2 = np.load("X_strategy_2.npy")
-X3 = np.load("X_strategy_3.npy")
+X1 = np.load("features/X_strategy_1.npy")
+X2 = np.load("features/X_strategy_2.npy")
+X3 = np.load("features/X_strategy_3.npy")
 
-y = np.load("y.npy")
+y = np.load("features/y.npy")
 
 # ============================================================
 # STRATEGIES
@@ -292,10 +292,10 @@ results = Parallel(
 results_df = pd.DataFrame(results)
 
 results_df.to_csv(
-    "systematic_results_parallel.csv",
+    "results/systematic_results_parallel.csv",
     index=False
 )
 
 print("\n========================================")
-print("FINISHED")
+print("TREINAMENTO SVM FINALIZADO SALVOS EM 'systematic_results_parallel'")
 print("========================================")

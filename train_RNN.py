@@ -75,138 +75,9 @@ HIDDEN_SIZE = 64
 
 NUM_LAYERS = 1
 
-# ============================================================
-# LOAD FILES
-# ============================================================
 
-df = pd.read_csv("balanced_dataset.csv")
-
-files = df["file"].values
-
-labels = df["label"].values
-
-print("\nTotal files:", len(files))
-
-# ============================================================
-# FEATURE EXTRACTION
-# ============================================================
-
-def extract_mfcc_sequence(file_path):
-
-    try:
-
-        signal, sr = librosa.load(
-            file_path,
-            sr=SR
-        )
-
-        # ================================================
-        # REMOVE INVALID SIGNALS
-        # ================================================
-
-        if len(signal) < 1000:
-            return None
-
-        if not np.isfinite(signal).all():
-            return None
-
-        # ================================================
-        # NORMALIZATION
-        # ================================================
-
-        max_value = np.max(np.abs(signal))
-
-        if max_value > 0:
-            signal = signal / max_value
-
-        # ================================================
-        # MFCC
-        # ================================================
-
-        mfcc = librosa.feature.mfcc(
-            y=signal,
-            sr=sr,
-            n_mfcc=N_MFCC,
-            n_fft=FRAME_LENGTH,
-            hop_length=HOP_LENGTH
-        )
-
-        # shape:
-        # (N_MFCC, time_frames)
-
-        mfcc = mfcc.T
-
-        # ================================================
-        # REMOVE NaNs
-        # ================================================
-
-        if np.isnan(mfcc).any():
-            return None
-
-        if np.isinf(mfcc).any():
-            return None
-
-        # ================================================
-        # FIXED LENGTH
-        # ================================================
-
-        if mfcc.shape[0] > MAX_LEN:
-
-            mfcc = mfcc[:MAX_LEN]
-
-        else:
-
-            pad_size = MAX_LEN - mfcc.shape[0]
-
-            padding = np.zeros(
-                (pad_size, N_MFCC)
-            )
-
-            mfcc = np.vstack([
-                mfcc,
-                padding
-            ])
-
-        return mfcc.astype(np.float32)
-
-    except Exception as e:
-
-        print("\nErro em:", file_path)
-        print(e)
-
-        return None
-
-# ============================================================
-# BUILD DATASET
-# ============================================================
-
-X = []
-y = []
-
-print("\n==============================")
-print("EXTRACTING FEATURES")
-print("==============================")
-
-for i, (file_path, label) in enumerate(zip(files, labels)):
-
-    mfcc_seq = extract_mfcc_sequence(file_path)
-
-    if mfcc_seq is not None:
-
-        X.append(mfcc_seq)
-
-        y.append(label)
-
-    if (i + 1) % 100 == 0:
-
-        print(f"{i+1}/{len(files)} processed")
-
-X = np.array(X)
-
-y = np.array(y)
-
-print("\nFinal dataset shape:")
-print(X.shape)
+X = np.load("features/X_rnn.npy")
+y = np.load("features/y.npy")
 
 # ============================================================
 # TRAIN / TEST SPLIT
@@ -341,9 +212,6 @@ optimizer = torch.optim.Adam(
 # TRAINING
 # ============================================================
 
-print("\n==============================")
-print("TRAINING")
-print("==============================")
 
 for epoch in range(EPOCHS):
 
@@ -378,11 +246,6 @@ for epoch in range(EPOCHS):
 
     epoch_time = epoch_end - epoch_start
 
-    print(
-        f"Epoch {epoch+1}/{EPOCHS} | "
-        f"Loss: {running_loss:.4f} | "
-        f"Time: {epoch_time:.2f}s"
-    )
 
 # ============================================================
 # EVALUATION
@@ -452,23 +315,48 @@ tn, fp, fn, tp = confusion_matrix(
     all_preds
 ).ravel()
 
+
 # ============================================================
-# RESULTS
+# SAVE RESULTS CSV
 # ============================================================
 
-print("\n==============================")
-print("LSTM RESULTS")
-print("==============================")
+results_df = pd.DataFrame({
 
-print(f"TP : {tp}")
-print(f"TN : {tn}")
-print(f"FP : {fp}")
-print(f"FN : {fn}")
+    "Model": ["LSTM"],
 
-print()
+    "N_MFCC": [N_MFCC],
 
-print(f"Accuracy : {accuracy:.4f}")
-print(f"Precision: {precision:.4f}")
-print(f"Recall   : {recall:.4f}")
-print(f"F1-score : {f1:.4f}")
-print(f"AUC      : {auc:.4f}")
+    "Hidden_Size": [HIDDEN_SIZE],
+
+    "Num_Layers": [NUM_LAYERS],
+
+    "Batch_Size": [BATCH_SIZE],
+
+    "Epochs": [EPOCHS],
+
+    "Learning_Rate": [LEARNING_RATE],
+
+    "TP": [tp],
+
+    "TN": [tn],
+
+    "FP": [fp],
+
+    "FN": [fn],
+
+    "Accuracy": [accuracy],
+
+    "Precision": [precision],
+
+    "Recall": [recall],
+
+    "F1_Score": [f1],
+
+    "AUC_ROC": [auc]
+})
+
+
+results_df.to_csv(
+    "results/RNN_results.csv",
+    index=False
+)

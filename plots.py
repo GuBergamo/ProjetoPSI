@@ -1,25 +1,63 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import os
 
 # ============================================================
-# LOAD
+# CREATE FOLDER
 # ============================================================
 
-df = pd.read_csv("systematic_results_parallel.csv")
+os.makedirs(
+    "results/plots",
+    exist_ok=True
+)
 
 # ============================================================
-# 1. STRATEGY COMPARISON
+# LOAD RESULTS
 # ============================================================
 
-strategy_mean = df.groupby("Strategy")[
-    "AUC_mean"
-].mean()
+df = pd.read_csv(
+    "results/systematic_results_parallel.csv"
+)
+
+# ============================================================
+# BEST RESULTS
+# ============================================================
+
+best_df = df.sort_values(
+
+    by="AUC_mean",
+
+    ascending=False
+)
+
+print("\nTop 10 Results:\n")
+
+print(
+    best_df[
+        [
+            "Strategy",
+            "C",
+            "Gamma",
+            "Kernel",
+            "AUC_mean"
+        ]
+    ].head(10)
+)
+
+# ============================================================
+# STRATEGY COMPARISON
+# ============================================================
+
+strategy_auc = df.groupby(
+
+    "Strategy"
+
+)["AUC_mean"].mean()
 
 plt.figure(figsize=(8,5))
 
-plt.bar(
-    strategy_mean.index,
-    strategy_mean.values
+strategy_auc.plot(
+    kind="bar"
 )
 
 plt.ylabel("Mean AUC")
@@ -28,121 +66,166 @@ plt.title("Strategy Comparison")
 
 plt.tight_layout()
 
-plt.show()
+plt.savefig(
+    "results/plots/strategy_comparison.png",
+    dpi=300
+)
+
+plt.close()
 
 # ============================================================
-# 2. GAMMA ANALYSIS
+# GAMMA ANALYSIS
 # ============================================================
-
-plt.figure(figsize=(8,5))
 
 for strategy in df["Strategy"].unique():
 
-    sub = df[
-        (df["Strategy"] == strategy) &
-        (df["Kernel"] == "rbf") &
-        (df["C"] == 1)
+    subset = df[
+
+        df["Strategy"] == strategy
     ]
 
-    plt.plot(
-        sub["Gamma"],
-        sub["AUC_mean"],
-        marker='o',
-        label=strategy
+    gamma_auc = subset.groupby(
+
+        "Gamma"
+
+    )["AUC_mean"].mean()
+
+    plt.figure(figsize=(8,5))
+
+    gamma_auc.plot(
+        marker="o"
     )
 
-plt.xscale("log")
+    plt.ylabel("Mean AUC")
 
-plt.xlabel("Gamma")
+    plt.title(
+        f"Gamma Analysis - {strategy}"
+    )
 
-plt.ylabel("AUC")
+    plt.tight_layout()
 
-plt.title("Gamma Sensitivity")
+    plt.savefig(
 
-plt.legend()
+        f"results/plots/gamma_{strategy}.png",
 
-plt.tight_layout()
+        dpi=300
+    )
 
-plt.show()
+    plt.close()
 
 # ============================================================
-# 3. C ANALYSIS
+# C ANALYSIS
 # ============================================================
-
-plt.figure(figsize=(8,5))
 
 for strategy in df["Strategy"].unique():
 
-    sub = df[
-        (df["Strategy"] == strategy) &
-        (df["Kernel"] == "rbf") &
-        (df["Gamma"] == 0.01)
+    subset = df[
+
+        df["Strategy"] == strategy
     ]
 
-    plt.plot(
-        sub["C"],
-        sub["AUC_mean"],
-        marker='o',
-        label=strategy
+    C_auc = subset.groupby(
+
+        "C"
+
+    )["AUC_mean"].mean()
+
+    plt.figure(figsize=(8,5))
+
+    C_auc.plot(
+        marker="o"
     )
 
-plt.xscale("log")
+    plt.ylabel("Mean AUC")
 
-plt.xlabel("C")
+    plt.title(
+        f"C Analysis - {strategy}"
+    )
 
-plt.ylabel("AUC")
+    plt.tight_layout()
 
-plt.title("C Sensitivity")
+    plt.savefig(
 
-plt.legend()
+        f"results/plots/C_{strategy}.png",
 
-plt.tight_layout()
+        dpi=300
+    )
 
-plt.show()
+    plt.close()
 
 # ============================================================
-# 4. TRAINING TIME
+# KERNEL ANALYSIS
 # ============================================================
 
-time_mean = df.groupby("Strategy")[
-    "Training_Time_mean"
-].mean()
+for strategy in df["Strategy"].unique():
+
+    subset = df[
+
+        df["Strategy"] == strategy
+    ]
+
+    kernel_auc = subset.groupby(
+
+        "Kernel"
+
+    )["AUC_mean"].mean()
+
+    plt.figure(figsize=(8,5))
+
+    kernel_auc.plot(
+        kind="bar"
+    )
+
+    plt.ylabel("Mean AUC")
+
+    plt.title(
+        f"Kernel Analysis - {strategy}"
+    )
+
+    plt.tight_layout()
+
+    plt.savefig(
+
+        f"results/plots/kernel_{strategy}.png",
+
+        dpi=300
+    )
+
+    plt.close()
+
+# ============================================================
+# TRAINING TIME
+# ============================================================
+
+time_df = df.groupby(
+
+    "Strategy"
+
+)["Training_Time_mean"].mean()
 
 plt.figure(figsize=(8,5))
 
-plt.bar(
-    time_mean.index,
-    time_mean.values
+time_df.plot(
+    kind="bar"
 )
 
-plt.ylabel("Training Time (s)")
+plt.ylabel("Time (s)")
 
-plt.title("Average Training Time")
+plt.title("Training Time Comparison")
 
 plt.tight_layout()
 
-plt.show()
-
-# ============================================================
-# 5. KERNEL COMPARISON
-# ============================================================
-
-kernel_mean = df.groupby("Kernel")[
-    "AUC_mean"
-].mean()
-
-plt.figure(figsize=(6,5))
-
-plt.bar(
-    kernel_mean.index,
-    kernel_mean.values
+plt.savefig(
+    "results/plots/training_time.png",
+    dpi=300
 )
 
-plt.ylabel("Mean AUC")
+plt.close()
 
-plt.title("Kernel Comparison")
+# ============================================================
+# FINISH
+# ============================================================
 
-plt.tight_layout()
+print("\nPlots saved in:")
 
-plt.show()
-
+print("results/plots/")

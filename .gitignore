@@ -5,6 +5,9 @@ __pycache__/
 
 *.npy
 
+compare_csvs.py
+gpu_test.py
+
 Coswara-Data-master/
 
 *.zip
