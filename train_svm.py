@@ -4,10 +4,7 @@ import time
 
 from sklearn.svm import SVC
 
-from sklearn.model_selection import (
-    StratifiedKFold,
-    GridSearchCV
-)
+from sklearn.model_selection import StratifiedKFold
 
 from sklearn.preprocessing import StandardScaler
 
@@ -43,27 +40,18 @@ strategies = {
 }
 
 # ============================================================
-# PARAM GRID
+# HYPERPARAMETERS
 # ============================================================
 
-param_grid = {
+C_values = [0.1, 1, 10, 100]
 
-    "svm__C": [0.1, 1, 10, 100],
+gamma_values = [0.001, 0.01, 0.1, 1]
 
-    "svm__gamma": [0.001, 0.01, 0.1, 1],
-
-    "svm__kernel": ["rbf", "linear"]
-}
+kernel_values = ["linear", "rbf"]
 
 # ============================================================
-# CV
+# OUTER CV
 # ============================================================
-
-inner_cv = StratifiedKFold(
-    n_splits=3,
-    shuffle=True,
-    random_state=42
-)
 
 outer_cv = StratifiedKFold(
     n_splits=5,
@@ -83,151 +71,195 @@ results = []
 
 for strategy_name, X in strategies.items():
 
-    print("\n===================================")
+    print("\n========================================")
     print(strategy_name)
-    print("===================================")
+    print("========================================")
 
-    fold_number = 1
+    for C in C_values:
 
-    strategy_times = []
+        for gamma in gamma_values:
 
-    for train_idx, test_idx in outer_cv.split(X, y):
+            for kernel in kernel_values:
 
-        fold_start = time.time()
+                print("\n--------------------------------")
+                print(f"C={C}")
+                print(f"gamma={gamma}")
+                print(f"kernel={kernel}")
+                print("--------------------------------")
 
-        print(f"\nOuter Fold {fold_number}")
+                fold_number = 1
 
-        X_train = X[train_idx]
-        X_test = X[test_idx]
+                fold_accuracies = []
+                fold_precisions = []
+                fold_recalls = []
+                fold_f1s = []
+                fold_aucs = []
 
-        y_train = y[train_idx]
-        y_test = y[test_idx]
+                fold_times = []
 
-        # ====================================================
-        # PIPELINE
-        # ====================================================
+                fold_tps = []
+                fold_tns = []
+                fold_fps = []
+                fold_fns = []
 
-        pipeline = Pipeline([
-            ("scaler", StandardScaler()),
-            ("svm", SVC(probability=True))
-        ])
+                # ============================================
+                # OUTER CV
+                # ============================================
 
-        # ====================================================
-        # GRID SEARCH
-        # ====================================================
+                for train_idx, test_idx in outer_cv.split(X, y):
 
-        grid_search = GridSearchCV(
+                    start_time = time.time()
 
-            estimator=pipeline,
+                    X_train = X[train_idx]
+                    X_test = X[test_idx]
 
-            param_grid=param_grid,
+                    y_train = y[train_idx]
+                    y_test = y[test_idx]
 
-            cv=inner_cv,
+                    # ========================================
+                    # PIPELINE
+                    # ========================================
 
-            scoring="accuracy",
+                    pipeline = Pipeline([
+                        ("scaler", StandardScaler()),
 
-            n_jobs=-1
-        )
+                        ("svm", SVC(
+                            C=C,
+                            gamma=gamma,
+                            kernel=kernel,
+                            probability=True
+                        ))
+                    ])
 
-        # ====================================================
-        # TRAIN
-        # ====================================================
+                    # ========================================
+                    # TRAIN
+                    # ========================================
 
-        grid_search.fit(X_train, y_train)
+                    pipeline.fit(X_train, y_train)
 
-        best_model = grid_search.best_estimator_
+                    # ========================================
+                    # PREDICT
+                    # ========================================
 
-        # ====================================================
-        # PREDICT
-        # ====================================================
+                    y_pred = pipeline.predict(X_test)
 
-        y_pred = best_model.predict(X_test)
+                    y_prob = pipeline.predict_proba(X_test)[:,1]
 
-        y_prob = best_model.predict_proba(X_test)[:, 1]
+                    # ========================================
+                    # CONFUSION MATRIX
+                    # ========================================
 
-        # ====================================================
-        # CONFUSION MATRIX
-        # ====================================================
+                    tn, fp, fn, tp = confusion_matrix(
+                        y_test,
+                        y_pred
+                    ).ravel()
 
-        tn, fp, fn, tp = confusion_matrix(
-            y_test,
-            y_pred
-        ).ravel()
+                    # ========================================
+                    # METRICS
+                    # ========================================
 
-        # ====================================================
-        # METRICS
-        # ====================================================
+                    accuracy = accuracy_score(
+                        y_test,
+                        y_pred
+                    )
 
-        accuracy = accuracy_score(y_test, y_pred)
+                    precision = precision_score(
+                        y_test,
+                        y_pred
+                    )
 
-        precision = precision_score(y_test, y_pred)
+                    recall = recall_score(
+                        y_test,
+                        y_pred
+                    )
 
-        recall = recall_score(y_test, y_pred)
+                    f1 = f1_score(
+                        y_test,
+                        y_pred
+                    )
 
-        f1 = f1_score(y_test, y_pred)
+                    auc = roc_auc_score(
+                        y_test,
+                        y_prob
+                    )
 
-        auc = roc_auc_score(y_test, y_prob)
+                    # ========================================
+                    # TIME
+                    # ========================================
 
-        # ====================================================
-        # TIME
-        # ====================================================
+                    end_time = time.time()
 
-        fold_end = time.time()
+                    elapsed = end_time - start_time
 
-        training_time = fold_end - fold_start
+                    # ========================================
+                    # SAVE FOLD RESULTS
+                    # ========================================
 
-        strategy_times.append(training_time)
+                    fold_accuracies.append(accuracy)
+                    fold_precisions.append(precision)
+                    fold_recalls.append(recall)
+                    fold_f1s.append(f1)
+                    fold_aucs.append(auc)
 
-        # ====================================================
-        # PRINT
-        # ====================================================
+                    fold_times.append(elapsed)
 
-        print("Best Params:")
-        print(grid_search.best_params_)
+                    fold_tps.append(tp)
+                    fold_tns.append(tn)
+                    fold_fps.append(fp)
+                    fold_fns.append(fn)
 
-        print(f"Accuracy: {accuracy:.4f}")
-        print(f"Recall: {recall:.4f}")
-        print(f"AUC: {auc:.4f}")
+                    print(
+                        f"Fold {fold_number} | "
+                        f"AUC={auc:.4f} | "
+                        f"Acc={accuracy:.4f}"
+                    )
 
-        print(f"Training Time: {training_time:.2f} s")
+                    fold_number += 1
 
-        # ====================================================
-        # SAVE
-        # ====================================================
+                # ============================================
+                # SAVE AVERAGE RESULTS
+                # ============================================
 
-        results.append({
+                results.append({
 
-            "Strategy": strategy_name,
+                    "Strategy": strategy_name,
 
-            "Fold": fold_number,
+                    "C": C,
 
-            "TP": tp,
-            "TN": tn,
-            "FP": fp,
-            "FN": fn,
+                    "Gamma": gamma,
 
-            "Accuracy": accuracy,
-            "Precision": precision,
-            "Recall": recall,
-            "F1": f1,
-            "AUC": auc,
+                    "Kernel": kernel,
 
-            "Training_Time": training_time,
+                    "Accuracy_mean":
+                        np.mean(fold_accuracies),
 
-            "Best_C":
-                grid_search.best_params_["svm__C"],
+                    "Precision_mean":
+                        np.mean(fold_precisions),
 
-            "Best_gamma":
-                grid_search.best_params_["svm__gamma"],
+                    "Recall_mean":
+                        np.mean(fold_recalls),
 
-            "Best_kernel":
-                grid_search.best_params_["svm__kernel"]
-        })
+                    "F1_mean":
+                        np.mean(fold_f1s),
 
-        fold_number += 1
+                    "AUC_mean":
+                        np.mean(fold_aucs),
 
-    print("\nTempo médio:")
-    print(np.mean(strategy_times))
+                    "Training_Time_mean":
+                        np.mean(fold_times),
+
+                    "TP_mean":
+                        np.mean(fold_tps),
+
+                    "TN_mean":
+                        np.mean(fold_tns),
+
+                    "FP_mean":
+                        np.mean(fold_fps),
+
+                    "FN_mean":
+                        np.mean(fold_fns)
+                })
 
 # ============================================================
 # DATAFRAME
@@ -235,23 +267,15 @@ for strategy_name, X in strategies.items():
 
 results_df = pd.DataFrame(results)
 
-summary_df = results_df.groupby("Strategy")[[
-    "Accuracy",
-    "Precision",
-    "Recall",
-    "F1",
-    "AUC",
-    "Training_Time"
-]].mean()
-
-print(summary_df)
-
 # ============================================================
 # SAVE CSV
 # ============================================================
 
-results_df.to_csv("all_results.csv", index=False)
+results_df.to_csv(
+    "systematic_results.csv",
+    index=False
+)
 
-summary_df.to_csv("summary_results.csv")
-
-print("\nResultados salvos!")
+print("\n========================================")
+print("RESULTADOS SALVOS")
+print("========================================")

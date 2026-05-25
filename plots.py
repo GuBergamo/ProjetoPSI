@@ -5,80 +5,186 @@ import matplotlib.pyplot as plt
 # LOAD
 # ============================================================
 
-df = pd.read_csv("summary_results.csv")
+df = pd.read_csv("systematic_results.csv")
 
 # ============================================================
-# AUC
+# 1. STRATEGY COMPARISON
 # ============================================================
+
+strategy_mean = df.groupby("Strategy")[
+    "AUC_mean"
+].mean()
 
 plt.figure(figsize=(8,5))
 
-plt.bar(df["Strategy"], df["AUC"])
-
-plt.ylabel("AUC")
-
-plt.title("AUC média por estratégia")
-
-plt.tight_layout()
-
-plt.show()
-
-# ============================================================
-# F1
-# ============================================================
-
-plt.figure(figsize=(8,5))
-
-plt.bar(df["Strategy"], df["F1"])
-
-plt.ylabel("F1-score")
-
-plt.title("F1-score médio por estratégia")
-
-plt.tight_layout()
-
-plt.show()
-
-# ============================================================
-# TEMPO
-# ============================================================
-
-plt.figure(figsize=(8,5))
-
-plt.bar(df["Strategy"], df["Training_Time"])
-
-plt.ylabel("Tempo médio (s)")
-
-plt.title("Tempo médio de treinamento")
-
-plt.tight_layout()
-
-plt.show()
-
-# ============================================================
-# TRADEOFF
-# ============================================================
-
-plt.figure(figsize=(7,6))
-
-plt.scatter(
-    df["Training_Time"],
-    df["AUC"]
+plt.bar(
+    strategy_mean.index,
+    strategy_mean.values
 )
 
-for i in range(len(df)):
+plt.ylabel("Mean AUC")
 
-    plt.text(
-        df["Training_Time"][i],
-        df["AUC"][i],
-        df["Strategy"][i]
+plt.title("Strategy Comparison")
+
+plt.tight_layout()
+
+plt.show()
+
+# ============================================================
+# 2. GAMMA ANALYSIS
+# ============================================================
+
+plt.figure(figsize=(8,5))
+
+for strategy in df["Strategy"].unique():
+
+    sub = df[
+        (df["Strategy"] == strategy) &
+        (df["Kernel"] == "rbf") &
+        (df["C"] == 1)
+    ]
+
+    plt.plot(
+        sub["Gamma"],
+        sub["AUC_mean"],
+        marker='o',
+        label=strategy
     )
 
-plt.xlabel("Tempo médio (s)")
+plt.xscale("log")
+
+plt.xlabel("Gamma")
 
 plt.ylabel("AUC")
 
-plt.title("Tradeoff: performance vs custo computacional")
+plt.title("Gamma Sensitivity")
+
+plt.legend()
+
+plt.tight_layout()
+
+plt.show()
+
+# ============================================================
+# 3. C ANALYSIS
+# ============================================================
+
+plt.figure(figsize=(8,5))
+
+for strategy in df["Strategy"].unique():
+
+    sub = df[
+        (df["Strategy"] == strategy) &
+        (df["Kernel"] == "rbf") &
+        (df["Gamma"] == 0.01)
+    ]
+
+    plt.plot(
+        sub["C"],
+        sub["AUC_mean"],
+        marker='o',
+        label=strategy
+    )
+
+plt.xscale("log")
+
+plt.xlabel("C")
+
+plt.ylabel("AUC")
+
+plt.title("C Sensitivity")
+
+plt.legend()
+
+plt.tight_layout()
+
+plt.show()
+
+# ============================================================
+# 4. TRAINING TIME
+# ============================================================
+
+time_mean = df.groupby("Strategy")[
+    "Training_Time_mean"
+].mean()
+
+plt.figure(figsize=(8,5))
+
+plt.bar(
+    time_mean.index,
+    time_mean.values
+)
+
+plt.ylabel("Training Time (s)")
+
+plt.title("Average Training Time")
+
+plt.tight_layout()
+
+plt.show()
+
+# ============================================================
+# 5. KERNEL COMPARISON
+# ============================================================
+
+kernel_mean = df.groupby("Kernel")[
+    "AUC_mean"
+].mean()
+
+plt.figure(figsize=(6,5))
+
+plt.bar(
+    kernel_mean.index,
+    kernel_mean.values
+)
+
+plt.ylabel("Mean AUC")
+
+plt.title("Kernel Comparison")
+
+plt.tight_layout()
+
+plt.show()
+
+# ============================================================
+# 6. HEATMAP-LIKE PLOT
+# ============================================================
+
+rbf_df = df[
+    (df["Strategy"] == "MFCC") &
+    (df["Kernel"] == "rbf")
+]
+
+pivot = rbf_df.pivot(
+    index="Gamma",
+    columns="C",
+    values="AUC_mean"
+)
+
+plt.figure(figsize=(8,6))
+
+plt.imshow(
+    pivot,
+    aspect='auto'
+)
+
+plt.colorbar(label="AUC")
+
+plt.xticks(
+    range(len(pivot.columns)),
+    pivot.columns
+)
+
+plt.yticks(
+    range(len(pivot.index)),
+    pivot.index
+)
+
+plt.xlabel("C")
+
+plt.ylabel("Gamma")
+
+plt.title("MFCC Strategy Heatmap")
 
 plt.tight_layout()
 
